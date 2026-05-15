@@ -171,6 +171,7 @@ func upsertProfile(preferredID, fullName, email, avatarURL string) (*models.Prof
 		Email:     trimmedEmail,
 		AvatarURL: trimmedAvatarURL,
 		UpdatedAt: now,
+		FamilyID:  nil,
 	}
 
 	if createErr := database.DB.Create(&profile).Error; createErr != nil {
@@ -178,4 +179,32 @@ func upsertProfile(preferredID, fullName, email, avatarURL string) (*models.Prof
 	}
 
 	return &profile, true, nil
+}
+
+func GetFamilyMembersByUserID(userID string) ([]models.Profile, error) {
+	trimmedUserID := strings.TrimSpace(userID)
+	if trimmedUserID == "" {
+		return nil, errors.New("user_id es obligatorio")
+	}
+
+	var userProfile models.Profile
+	if err := database.DB.Where("id = ?", trimmedUserID).First(&userProfile).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("no se encontro profile para el usuario %s", trimmedUserID)
+		}
+		return nil, fmt.Errorf("error buscando profile del usuario: %w", err)
+	}
+
+	if userProfile.FamilyID == nil || strings.TrimSpace(*userProfile.FamilyID) == "" {
+		return []models.Profile{}, nil
+	}
+
+	var familyMembers []models.Profile
+	if err := database.DB.Where("family_id = ?", *userProfile.FamilyID).
+		Order("full_name asc").
+		Find(&familyMembers).Error; err != nil {
+		return nil, fmt.Errorf("error buscando miembros de la familia: %w", err)
+	}
+
+	return familyMembers, nil
 }

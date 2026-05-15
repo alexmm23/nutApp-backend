@@ -52,6 +52,7 @@ func CreateUser(c *fiber.Ctx) error {
 }
 
 func UpsertGoogleProfile(c *fiber.Ctx) error {
+	println("Recibiendo request para upsert Google Profile")
 	var req GoogleProfileRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{
@@ -74,6 +75,7 @@ func UpsertGoogleProfile(c *fiber.Ctx) error {
 			"error": "name y email son obligatorios",
 		})
 	}
+	println("Request validado, llamando a repositorio para upsert Google Profile")
 
 	profile, created, err := repositories.UpsertGoogleProfile(req.GoogleID, req.Name, req.Email, req.AvatarURL)
 	if err != nil {
@@ -90,8 +92,37 @@ func UpsertGoogleProfile(c *fiber.Ctx) error {
 	}
 
 	return c.Status(statusCode).JSON(fiber.Map{
-		"message": message,
-		"created": created,
-		"data":    profile,
+		"message":    message,
+		"created":    created,
+		"profile_id": profile.ID,
+		"family_id":  profile.FamilyID,
+		"data":       profile,
+	})
+}
+
+func GetFamilyMembersByUserID(c *fiber.Ctx) error {
+	userID := strings.TrimSpace(c.Params("user_id"))
+	if userID == "" {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "user_id es obligatorio",
+		})
+	}
+
+	members, err := repositories.GetFamilyMembersByUserID(userID)
+	if err != nil {
+		if strings.Contains(err.Error(), "no se encontro profile") {
+			return c.Status(404).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+
+		return c.Status(500).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"message": "Miembros de familia obtenidos exitosamente",
+		"data":    members,
 	})
 }
