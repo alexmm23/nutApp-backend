@@ -14,11 +14,13 @@ type CreateUserRequest struct {
 }
 
 type GoogleProfileRequest struct {
-	GoogleID  string `json:"google_id"`
-	Name      string `json:"name"`
-	FullName  string `json:"full_name"`
-	Email     string `json:"email"`
-	AvatarURL string `json:"avatar_url"`
+	ProfileID string  `json:"profile_id"`
+	FamilyID  *string `json:"family_id"`
+	GoogleID  string  `json:"google_id"`
+	Name      string  `json:"name"`
+	FullName  string  `json:"full_name"`
+	Email     string  `json:"email"`
+	AvatarURL string  `json:"avatar_url"`
 }
 
 func CreateUser(c *fiber.Ctx) error {
@@ -52,7 +54,6 @@ func CreateUser(c *fiber.Ctx) error {
 }
 
 func UpsertGoogleProfile(c *fiber.Ctx) error {
-	println("Recibiendo request para upsert Google Profile")
 	var req GoogleProfileRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(400).JSON(fiber.Map{
@@ -61,6 +62,7 @@ func UpsertGoogleProfile(c *fiber.Ctx) error {
 	}
 
 	req.GoogleID = strings.TrimSpace(req.GoogleID)
+	req.ProfileID = strings.TrimSpace(req.ProfileID)
 	req.Name = strings.TrimSpace(req.Name)
 	req.FullName = strings.TrimSpace(req.FullName)
 	req.Email = strings.TrimSpace(req.Email)
@@ -75,14 +77,27 @@ func UpsertGoogleProfile(c *fiber.Ctx) error {
 			"error": "name y email son obligatorios",
 		})
 	}
-	println("Request validado, llamando a repositorio para upsert Google Profile")
 
-	profile, created, err := repositories.UpsertGoogleProfile(req.GoogleID, req.Name, req.Email, req.AvatarURL)
+	preferredID := req.ProfileID
+	if preferredID == "" {
+		preferredID = req.GoogleID
+	}
+
+	profile, created, err := repositories.UpsertGoogleProfile(preferredID, req.Name, req.Email, req.AvatarURL)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	}
+
+	family, familyCreated, err := repositories.EnsureProfileFamily(profile.ID, "Familia de "+profile.FullName)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	profile.FamilyID = &family.ID
 
 	statusCode := 200
 	message := "Perfil sincronizado exitosamente"
@@ -92,11 +107,13 @@ func UpsertGoogleProfile(c *fiber.Ctx) error {
 	}
 
 	return c.Status(statusCode).JSON(fiber.Map{
-		"message":    message,
-		"created":    created,
-		"profile_id": profile.ID,
-		"family_id":  profile.FamilyID,
-		"data":       profile,
+		"message":        message,
+		"created":        created,
+		"family_created": familyCreated,
+		"profile_id":     profile.ID,
+		"family_id":      family.ID,
+		"family_code":    family.FamilyCode,
+		"data":           profile,
 	})
 }
 

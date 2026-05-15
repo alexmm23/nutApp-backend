@@ -12,5 +12,6 @@ func SetupRoutes(app *fiber.App) {
 	app.Post("/new/family", handlers.CreateFamily)
 	app.Post("/new/user", handlers.CreateUser)
 	app.Post("/profiles/google", handlers.UpsertGoogleProfile)
+	app.Post("/families/code", handlers.GenerateFamilyCode)
 	app.Get("/profiles/:user_id/family-members", handlers.GetFamilyMembersByUserID)
 }
