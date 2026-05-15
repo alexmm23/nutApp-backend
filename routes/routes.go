@@ -10,4 +10,6 @@ func SetupRoutes(app *fiber.App) {
 	app.Get("/health", handlers.Health)
 	app.Get("/debug/db", handlers.DebugDB)
 	app.Post("/new/family", handlers.CreateFamily)
+	app.Post("/new/user", handlers.CreateUser)
+	app.Post("/profiles/google", handlers.UpsertGoogleProfile)
 }
